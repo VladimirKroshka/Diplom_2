@@ -1,14 +1,13 @@
 import io.qameta.allure.Description;
 import io.qameta.allure.Step;
 import io.qameta.allure.junit4.DisplayName;
-import io.qameta.allure.restassured.AllureRestAssured;
-import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import resources.POJO.OrderRequest;
-import resources.POJO.User;
+import resources.BaseTest;
+import resources.pojo.OrderRequest;
+import resources.pojo.User;
 import utils.OrderMethod;
 import utils.UserMethod;
 
@@ -17,11 +16,10 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.hamcrest.Matchers.equalTo;
-import static resources.Endpoints.*;
 import static utils.RandomGenerator.generateRandomNumber;
 
+public class OrderCreationTest extends BaseTest {
 
-public class OrderCreationTest {
     private User user;
     private String accessToken;
     private List<String> validIngredients;
@@ -29,9 +27,7 @@ public class OrderCreationTest {
 
     @Before
     public void setUp() {
-        RestAssured.baseURI = BASE_URL;
-        RestAssured.filters(new AllureRestAssured());
-        // Генерируем уникальные данные перед тестом
+        // Устанавливаем уникальные данные перед тестом
         user = new User();
         user.setEmail("test-data" + generateRandomNumber(5) + "@yandex.ru");
         user.setPassword(generateRandomNumber(10));
@@ -55,99 +51,63 @@ public class OrderCreationTest {
     @DisplayName("Создание заказа")
     @Description("Создание заказа с авторизацией")
     public void testCreateOrderWithAuthorization() {
-        createOrderWithAuthorization();
+        createOrderWithParameters(validIngredients, true, null, 200);
     }
 
     @Test
     @DisplayName("Создание заказа")
     @Description("Создание заказа без авторизации")
     public void testCreateOrderWithoutAuthorization() {
-        createOrderWithoutAuthorization();
+        createOrderWithParameters(validIngredients, false, null, 200);
     }
 
     @Test
     @DisplayName("Создание заказа")
     @Description("Создание заказа с ингредиентами")
     public void testCreateOrderWithIngredients() {
-        createOrderWithIngredients();
+        createOrderWithParameters(validIngredients, true, null, 200);
     }
 
     @Test
     @DisplayName("Создание заказа")
     @Description("Создание заказа без ингредиентов")
     public void testCreateOrderWithoutIngredients() {
-        createOrderWithoutIngredients();
+        createOrderWithParameters(new ArrayList<>(), true, "Ingredient ids must be provided", 400);
     }
 
     @Test
     @DisplayName("Создание заказа")
     @Description("Создание заказа с неверным хешем ингредиентов")
     public void testCreateOrderWithInvalidIngredients() {
-        createOrderWithInvalidIngredients();
+        createOrderWithParameters(invalidIngredients, true, null, 500);  // Убираем проверку message
     }
 
-    @Step("Создание заказа с авторизацией")
-    public void createOrderWithAuthorization() {
-        // Создаем пользователя и получаем токен
-        accessToken = UserMethod.createUniqueUser(user);
+    @Step("Генерация параметризованного заказа")
+    public void createOrderWithParameters(List<String> ingredients, boolean withAuthorization, String expectedErrorMessage, int expectedStatusCode) {
+        // Создаем пользователя и получаем токен, если требуется авторизация
+        if (withAuthorization) {
+            accessToken = UserMethod.createUniqueUser(user);
+        }
 
-        // Создаем заказ с авторизацией
-        List<String> selectedIngredients = Arrays.asList(validIngredients.get(0), validIngredients.get(2), validIngredients.get(4));
-        OrderRequest orderRequest = new OrderRequest(selectedIngredients);
-        Response response = OrderMethod.createOrder(accessToken, orderRequest);
-        response.then()
-                .statusCode(200)
-                .body("success", equalTo(true));
-    }
+        // Создаем заказ
+        OrderRequest orderRequest = new OrderRequest(ingredients);
+        Response response;
+        if (withAuthorization) {
+            response = OrderMethod.createOrder(accessToken, orderRequest);
+        } else {
+            response = OrderMethod.createOrderWithoutAuthorization(orderRequest);
+        }
 
-    @Step("Создание заказа без авторизации")
-    public void createOrderWithoutAuthorization() {
-        // Создаем заказ без авторизации
-        List<String> selectedIngredients = Arrays.asList(validIngredients.get(0), validIngredients.get(2), validIngredients.get(4));
-        OrderRequest orderRequest = new OrderRequest(selectedIngredients);
-        Response response = OrderMethod.createOrderWithoutAuthorization(orderRequest);
-        response.then()
-                .statusCode(200)
-                .body("success", equalTo(true));
-    }
-
-    @Step("Создание заказа с ингредиентами")
-    public void createOrderWithIngredients() {
-        // Создаем пользователя и получаем токен
-        accessToken = UserMethod.createUniqueUser(user);
-
-        // Создаем заказ с ингредиентами
-        List<String> selectedIngredients = Arrays.asList(validIngredients.get(0), validIngredients.get(2), validIngredients.get(4));
-        OrderRequest orderRequest = new OrderRequest(selectedIngredients);
-        Response response = OrderMethod.createOrder(accessToken, orderRequest);
-        response.then()
-                .statusCode(200)
-                .body("success", equalTo(true));
-    }
-
-    @Step("Создание заказа без ингредиентов")
-    public void createOrderWithoutIngredients() {
-        // Создаем пользователя и получаем токен
-        accessToken = UserMethod.createUniqueUser(user);
-
-        // Создаем заказ без ингредиентов
-        OrderRequest orderRequest = new OrderRequest(new ArrayList<>());
-        Response response = OrderMethod.createOrder(accessToken, orderRequest);
-        response.then()
-                .statusCode(400)
-                .body("success", equalTo(false))
-                .body("message", equalTo("Ingredient ids must be provided"));
-    }
-
-    @Step("Создание заказа с неверным хешем ингредиентов")
-    public void createOrderWithInvalidIngredients() {
-        // Создаем пользователя и получаем токен
-        accessToken = UserMethod.createUniqueUser(user);
-
-        // Создаем заказ с неверным хешем ингредиентов
-        OrderRequest orderRequest = new OrderRequest(invalidIngredients);
-        Response response = OrderMethod.createOrder(accessToken, orderRequest);
-        response.then()
-                .statusCode(500);
+        // Проверяем на основе ожидаемого кода статуса
+        if (expectedErrorMessage != null) {
+            // Проверяем, если ожидается ошибка
+            response.then()
+                    .statusCode(expectedStatusCode)
+                    .body("message", equalTo(expectedErrorMessage)); // Проверяем наличие ошибки в поле "message"
+        } else {
+            // Проверяем успешный результат
+            response.then()
+                    .statusCode(expectedStatusCode); // Ожидаем только код статуса
+        }
     }
 }

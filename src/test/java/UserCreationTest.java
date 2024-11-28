@@ -7,33 +7,36 @@ import io.restassured.response.Response;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import resources.POJO.User;
+import resources.BaseTest;
+import resources.pojo.User;
 import utils.UserMethod;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static resources.Endpoints.*;
 import static utils.RandomGenerator.generateRandomNumber;
+import static utils.UserMethod.createUser;
 
-public class UserCreationTest {
+public class UserCreationTest extends BaseTest {
 
     private User user;
     private String accessToken;
 
     @Before
     public void setUp() {
-        RestAssured.baseURI = BASE_URL;
-        RestAssured.filters(new AllureRestAssured());
-        //генерируем уникальные данные перед тестом
-        user = new User();
-        user.setEmail("test-data" + generateRandomNumber(5) + "@yandex.ru");
-        user.setPassword(generateRandomNumber(10));
-        user.setName("Username" + generateRandomNumber(5));
+        user = new User(
+                "test-data" + generateRandomNumber(5) + "@yandex.ru",
+                generateRandomNumber(10),
+                "Username" + generateRandomNumber(5)
+        );
     }
 
     @After
     public void tearDown() {
-        // Удаляем пользователя, если получилось создать его
+        // Удаляем пользователя, если он был создан
         if (accessToken != null) {
             UserMethod.deleteUser(accessToken);
         }
@@ -62,29 +65,21 @@ public class UserCreationTest {
 
     @Step("Создание уникального пользователя")
     public void createUniqueUser() {
-        Response response = given()
-                .contentType("application/json")
-                .body(this.user)
-                .post(BASE_URL + API_REGISTER_USER);
-
+        Response response = createUser(user);
         response.then()
                 .statusCode(200)
                 .body("success", equalTo(true));
-        //сохраняем токен для использования и удаления пользователя
+        // Сохраняем токен для последующего удаления пользователя
         accessToken = response.jsonPath().getString("accessToken").replace("Bearer ", "");
     }
 
     @Step("Создание пользователя, который уже зарегистрирован")
     public void createExistingUser() {
-        //Создаем пользователя
-        testCreateUniqueUser();
-        //Пытаемся повторно создать пользователя
-        given()
-                .contentType("application/json")
-                .body(this.user)
-                .when()
-                .post(BASE_URL + API_REGISTER_USER)
-                .then()
+        // Создаем пользователя
+        createUniqueUser();
+        // Пытаемся повторно создать пользователя
+        Response response = createUser(user);
+        response.then()
                 .statusCode(403)
                 .body("success", equalTo(false))
                 .body("message", equalTo("User already exists"));
@@ -92,14 +87,18 @@ public class UserCreationTest {
 
     @Step("Создание пользователя без одного из обязательных полей")
     public void createUserWithoutRequiredField() {
-        given()
-                .contentType("application/json")
-                .body("{\"email\": \"" + user.getEmail() + "\", \"password\": \"" + user.getPassword() + "\"}")
-                .when()
-                .post(BASE_URL + API_REGISTER_USER)
-                .then()
-                .statusCode(403)
-                .body("success", equalTo(false))
-                .body("message", equalTo("Email, password and name are required fields"));
+        // Создаем карту для передачи только части данных
+        {
+            // Передаём только email и пароль
+            Map<String, String> partialUserData = new HashMap<>();
+            partialUserData.put("email", user.getEmail());
+            partialUserData.put("password", user.getPassword());
+
+            Response response = UserMethod.createUserWithPartialData(partialUserData);
+            response.then()
+                    .statusCode(403)
+                    .body("success", equalTo(false))
+                    .body("message", equalTo("Email, password and name are required fields"));
+        }
     }
 }

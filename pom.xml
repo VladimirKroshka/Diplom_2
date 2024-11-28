@@ -81,5 +81,17 @@
             <artifactId>allure-junit4</artifactId>
             <version>2.13.9</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.javafaker</groupId>
+            <artifactId>javafaker</artifactId>
+            <version>1.0.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.30</version> <!-- Убедитесь, что версия актуальна -->
+            <scope>provided</scope> <!-- Lombok используется только в процессе компиляции -->
+        </dependency>
+
     </dependencies>
 </project>

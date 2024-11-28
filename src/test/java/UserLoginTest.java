@@ -7,7 +7,8 @@ import io.restassured.response.Response;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import resources.POJO.User;
+import resources.BaseTest;
+import resources.pojo.User;
 import utils.UserMethod;
 
 import static io.restassured.RestAssured.given;
@@ -15,15 +16,13 @@ import static org.hamcrest.Matchers.equalTo;
 import static resources.Endpoints.*;
 import static utils.RandomGenerator.generateRandomNumber;
 
-public class UserLoginTest {
+public class UserLoginTest extends BaseTest {
     private User user;
     private String refreshToken;
     private String accessToken;
 
     @Before
     public void setUp() {
-        RestAssured.baseURI = BASE_URL;
-        RestAssured.filters(new AllureRestAssured());
         //генерируем уникальные данные перед тестом
         user = new User();
         user.setEmail("test-data" + generateRandomNumber(5) + "@yandex.ru");
@@ -59,33 +58,27 @@ public class UserLoginTest {
 
     @Step("Логин под существующим пользователем")
     public void loginExistingUser() {
-        //создаем пользователя для теста и получаем токен
+        // Создаем пользователя для теста и получаем токен
         accessToken = UserMethod.createUniqueUser(user);
-        //авторизуемся под пользователем
-        Response response = given()
-                .contentType("application/json")
-                .body(this.user)
-                .post(BASE_URL + API_LOGIN_USER);
+        // Авторизуемся под пользователем
+        Response response = UserMethod.loginUser(user);
         response.then()
                 .statusCode(200)
                 .body("success", equalTo(true));
-        //сохраняем refreshToken, он нужен, чтобы делать logout
+        // Сохраняем refreshToken, он нужен для logout
         refreshToken = response.jsonPath().getString("refreshToken");
     }
 
+    @Step("логин с неверным логином и паролем")
     public void loginWithIncorrectCreditional() {
-        //создаем пользователя для теста и получаем токен
+        // Создаем пользователя для теста и получаем токен
         accessToken = UserMethod.createUniqueUser(user);
-        //добавляем к паролю лишний знак
-        Response response = given()
-                .contentType("application/json")
-                .body("{\"email\": \"" + user.getEmail() + "\", \"password\": \"" + user.getPassword() + "1\"}")
-                .post(BASE_URL + API_LOGIN_USER);
+        // Логин с неверными данными через карту
+        Response response = UserMethod.loginWithIncorrectCredentials(user);
         response.then()
                 .statusCode(401)
                 .body("success", equalTo(false))
                 .body("message", equalTo("email or password are incorrect"));
-        ;
     }
 }
 

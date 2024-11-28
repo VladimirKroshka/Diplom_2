@@ -1,7 +1,7 @@
 package utils;
 
 import io.restassured.response.Response;
-import resources.POJO.OrderRequest;
+import resources.pojo.OrderRequest;
 
 import java.util.List;
 
@@ -75,6 +75,19 @@ public class OrderMethod {
                 .then()
                 .statusCode(200)
                 .body("success", equalTo(true))
+                .log().all()
+                .extract()
+                .response();
+    }
+
+    public static Response getNotAthUserOrders() {
+        return given()
+                .when()
+                .get(BASE_URL + API_GET_ORDER)
+                .then()
+                .statusCode(401)
+                .body("success", equalTo(false))
+                .log().all()
                 .extract()
                 .response();
     }

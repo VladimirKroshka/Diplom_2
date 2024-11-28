@@ -4,12 +4,13 @@ import java.util.Random;
 
 public class RandomGenerator {
 
+    private static final Random random = new Random();
+
     public static String generateRandomNumber(int length) {
-        Random random = new Random();
-        StringBuilder sb = new StringBuilder(length);
+        StringBuilder number = new StringBuilder();
         for (int i = 0; i < length; i++) {
-            sb.append(random.nextInt(10)); // Генерирует случайное число от 0 до 9
+            number.append(random.nextInt(10)); // Генерация случайной цифры от 0 до 9
         }
-        return sb.toString();
+        return number.toString();
     }
 }
